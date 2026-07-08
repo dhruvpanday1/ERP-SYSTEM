@@ -1,0 +1,37 @@
+# ============================================================
+# WFX AI Explorer — Python Dependencies
+# ============================================================
+# Install with: pip install -r requirements.txt
+# ============================================================
+
+# FastAPI — Web framework
+fastapi==0.115.0
+uvicorn[standard]==0.30.0
+
+# Vanna AI — Natural Language to SQL (ChromaDB + OpenAI backend)
+vanna[chromadb,openai]==0.7.4
+
+# Database drivers
+pg8000==1.31.2
+
+
+# OpenAI client (used by Vanna for LLM calls via OpenRouter)
+openai==1.40.0
+
+# ChromaDB — Local vector store for Vanna training data
+chromadb
+
+# Data processing
+pandas
+
+# Image Similarity (CLIP) & Streaming
+torch
+transformers
+pillow
+sse-starlette
+
+# Pydantic (included with FastAPI, listed for clarity)
+pydantic==2.8.0
+
+# Environment variables
+python-dotenv==1.0.1
