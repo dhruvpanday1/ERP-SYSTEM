@@ -251,29 +251,50 @@ export default function FinishedGoods() {
       )}
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-8" id="fg-pagination">
-          <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1}
-            className="btn-secondary flex items-center gap-1.5 disabled:opacity-30 disabled:cursor-not-allowed" id="fg-prev-page">
-            <ChevronLeft className="w-4 h-4" /> Previous
-          </button>
-          <div className="flex items-center gap-1 mx-2">
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-              <button key={page} onClick={() => setCurrentPage(page)}
-                className={`w-9 h-9 rounded-xl text-sm font-bold transition-all duration-200 ${
-                  currentPage === page ? 'text-white shadow-lg' : 'text-surface-400 hover:text-surface-700 hover:bg-surface-100'
-                }`}
-                style={currentPage === page ? { background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' } : {}}>
-                {page}
-              </button>
-            ))}
+      {totalPages > 1 && (() => {
+        // Build smart page window: always show first, last, current±2, with ellipsis
+        const pages = [];
+        const delta = 2;
+        const left = Math.max(2, currentPage - delta);
+        const right = Math.min(totalPages - 1, currentPage + delta);
+
+        pages.push(1);
+        if (left > 2) pages.push('...');
+        for (let p = left; p <= right; p++) pages.push(p);
+        if (right < totalPages - 1) pages.push('...');
+        if (totalPages > 1) pages.push(totalPages);
+
+        return (
+          <div className="flex items-center justify-center gap-2 mt-8" id="fg-pagination">
+            <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1}
+              className="btn-secondary flex items-center gap-1.5 disabled:opacity-30 disabled:cursor-not-allowed" id="fg-prev-page">
+              <ChevronLeft className="w-4 h-4" /> Previous
+            </button>
+            <div className="flex items-center gap-1 mx-2">
+              {pages.map((page, idx) =>
+                page === '...' ? (
+                  <span key={`ellipsis-${idx}`} className="w-9 h-9 flex items-center justify-center text-surface-400 text-sm font-bold select-none">
+                    …
+                  </span>
+                ) : (
+                  <button key={page} onClick={() => setCurrentPage(page)}
+                    className={`w-9 h-9 rounded-xl text-sm font-bold transition-all duration-200 ${
+                      currentPage === page ? 'text-white shadow-lg' : 'text-surface-400 hover:text-surface-700 hover:bg-surface-100'
+                    }`}
+                    style={currentPage === page ? { background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' } : {}}
+                    id={`fg-page-${page}`}>
+                    {page}
+                  </button>
+                )
+              )}
+            </div>
+            <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
+              className="btn-secondary flex items-center gap-1.5 disabled:opacity-30 disabled:cursor-not-allowed" id="fg-next-page">
+              Next <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
-          <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
-            className="btn-secondary flex items-center gap-1.5 disabled:opacity-30 disabled:cursor-not-allowed" id="fg-next-page">
-            Next <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

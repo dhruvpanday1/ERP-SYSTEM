@@ -40,32 +40,59 @@ const pageTitles = {
 /* ── WFX Logo SVG ─────────────────────────────────── */
 function WFXLogo({ size = 40 }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <linearGradient id="logoGrad1" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#6366f1" />
-          <stop offset="100%" stopColor="#4f46e5" />
+        <linearGradient id="bgGrad" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#7c3aed" />
+          <stop offset="50%" stopColor="#6d28d9" />
+          <stop offset="100%" stopColor="#4c1d95" />
         </linearGradient>
-        <linearGradient id="logoGrad2" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#818cf8" />
-          <stop offset="100%" stopColor="#6366f1" />
+        <linearGradient id="shineGrad" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
+          <stop offset="0%" stopColor="white" stopOpacity="0.18" />
+          <stop offset="100%" stopColor="white" stopOpacity="0" />
         </linearGradient>
+        <linearGradient id="accentGrad" x1="0" y1="0" x2="48" y2="0" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#a78bfa" />
+          <stop offset="100%" stopColor="#c4b5fd" />
+        </linearGradient>
+        <filter id="glow">
+          <feGaussianBlur stdDeviation="1.5" result="blur" />
+          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
       </defs>
+
       {/* Background rounded square */}
-      <rect width="40" height="40" rx="10" fill="url(#logoGrad1)" />
-      {/* Top accent bar */}
-      <rect x="7" y="7" width="26" height="3" rx="1.5" fill="white" opacity="0.3" />
-      {/* W shape */}
-      <polyline points="7,14 10,26 14,19 17,26 20,14" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-      {/* F shape */}
-      <line x1="22" y1="14" x2="22" y2="26" stroke="white" strokeWidth="2.2" strokeLinecap="round" />
-      <line x1="22" y1="14" x2="28" y2="14" stroke="white" strokeWidth="2.2" strokeLinecap="round" />
-      <line x1="22" y1="20" x2="27" y2="20" stroke="white" strokeWidth="2.2" strokeLinecap="round" />
-      {/* Bottom accent dot */}
-      <circle cx="33" cy="28" r="2" fill="white" opacity="0.5" />
+      <rect width="48" height="48" rx="13" fill="url(#bgGrad)" />
+
+      {/* Inner subtle border ring */}
+      <rect x="1" y="1" width="46" height="46" rx="12.5" fill="none" stroke="white" strokeOpacity="0.12" strokeWidth="1" />
+
+      {/* Shine overlay top half */}
+      <rect x="1" y="1" width="46" height="23" rx="12.5" fill="url(#shineGrad)" />
+
+      {/* WFX text - clean, bold, modern */}
+      {/* W */}
+      <polyline
+        points="6,15 9,29 12,21.5 15,29 18,15"
+        stroke="white" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" fill="none"
+        filter="url(#glow)"
+      />
+
+      {/* F */}
+      <line x1="21" y1="15" x2="21" y2="29" stroke="white" strokeWidth="2.4" strokeLinecap="round" />
+      <line x1="21" y1="15" x2="28" y2="15" stroke="white" strokeWidth="2.4" strokeLinecap="round" />
+      <line x1="21" y1="22" x2="27" y2="22" stroke="white" strokeWidth="2.2" strokeLinecap="round" />
+
+      {/* X */}
+      <line x1="32" y1="15" x2="42" y2="29" stroke="url(#accentGrad)" strokeWidth="2.4" strokeLinecap="round" filter="url(#glow)" />
+      <line x1="42" y1="15" x2="32" y2="29" stroke="url(#accentGrad)" strokeWidth="2.4" strokeLinecap="round" filter="url(#glow)" />
+
+      {/* Accent dot bottom right */}
+      <circle cx="44" cy="44" r="2.5" fill="#a78bfa" opacity="0.7" />
     </svg>
   );
 }
+
 
 export default function Layout() {
   const [collapsed, setCollapsed] = useState(false);

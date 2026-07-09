@@ -7,6 +7,7 @@ import {
   Sparkles,
   Camera,
   FileImage,
+  Loader2,
 } from 'lucide-react';
 
 export default function ImageSearch() {
@@ -17,6 +18,8 @@ export default function ImageSearch() {
   const [results, setResults] = useState([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -42,28 +45,60 @@ export default function ImageSearch() {
       .catch(console.error);
   }, []);
 
-  const performSearch = () => {
-    const shuffled = [...allProducts].sort(() => Math.random() - 0.5);
-    const resultItems = shuffled.slice(0, 8).map((item, i) => ({
-      ...item,
-      similarity: Math.max(65, 98 - i * 4 - Math.floor(Math.random() * 3)),
-    }));
-    setResults(resultItems);
-    setHasSearched(true);
+  const performRealSearch = async (queryText, imageBase64) => {
+    setSearching(true);
+    setErrorMsg('');
+    try {
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const res = await fetch(`${apiBase}/api/search-image`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          image_base64: imageBase64 || null,
+          text_query: queryText || null,
+        }),
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json();
+        throw new Error(errJson.detail || `HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      setResults(data.data || []);
+      setHasSearched(true);
+    } catch (err) {
+      console.error('Search failed:', err);
+      setErrorMsg(err.message || 'Image search failed. Fallback to offline demo.');
+      
+      // Fallback
+      const shuffled = [...allProducts].sort(() => Math.random() - 0.5);
+      const resultItems = shuffled.slice(0, 8).map((item, i) => ({
+        ...item,
+        similarity: Math.max(65, 98 - i * 4 - Math.floor(Math.random() * 3)),
+      }));
+      setResults(resultItems);
+      setHasSearched(true);
+    } finally {
+      setSearching(false);
+    }
   };
 
   const handleTextSearch = (e) => {
     e.preventDefault();
-    if (searchQuery.trim()) performSearch();
+    if (searchQuery.trim()) {
+      performRealSearch(searchQuery, null);
+    }
   };
 
   const handleFileUpload = (file) => {
     if (file && file.type.startsWith('image/')) {
       const reader = new FileReader();
       reader.onload = (e) => {
-        setUploadedImage(e.target.result);
+        const base64Data = e.target.result;
+        setUploadedImage(base64Data);
         setUploadedFileName(file.name);
-        setTimeout(performSearch, 500);
+        performRealSearch(null, base64Data);
       };
       reader.readAsDataURL(file);
     }
@@ -75,7 +110,7 @@ export default function ImageSearch() {
 
   const clearImage = () => {
     setUploadedImage(null); setUploadedFileName('');
-    setResults([]); setHasSearched(false);
+    setResults([]); setHasSearched(false); setErrorMsg('');
   };
 
   const getSimilarityColor = (s) => s >= 90 ? '#10b981' : s >= 80 ? '#8b5cf6' : '#f59e0b';
@@ -94,11 +129,13 @@ export default function ImageSearch() {
               <div className="relative flex-1">
                 <Sparkles className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-400" />
                 <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                  disabled={searching}
                   placeholder='e.g. "blue floral cotton dress"'
                   className="input-field !pl-11 !py-3.5 !bg-surface-50 !border-surface-200" id="image-text-search-input" />
               </div>
-              <button type="submit" className="btn-primary flex items-center gap-2" id="image-text-search-btn">
-                <Search className="w-4 h-4" /> Search
+              <button type="submit" disabled={searching} className="btn-primary flex items-center gap-2" id="image-text-search-btn">
+                {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                {searching ? 'Searching...' : 'Search'}
               </button>
             </form>
           </div>
@@ -113,19 +150,28 @@ export default function ImageSearch() {
                 <img src={uploadedImage} alt="Uploaded" className="w-14 h-14 rounded-xl object-cover" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-surface-800 truncate">{uploadedFileName}</p>
-                  <p className="text-xs text-mint-500 flex items-center gap-1 mt-0.5 font-medium">
-                    <span className="w-1.5 h-1.5 rounded-full bg-mint-500"></span> Search complete
+                  <p className={`text-xs flex items-center gap-1 mt-0.5 font-medium ${searching ? 'text-violet-500' : 'text-mint-500'}`}>
+                    {searching ? (
+                      <>
+                        <Loader2 className="w-3 h-3 animate-spin text-violet-500" /> Analyzing image...
+                      </>
+                    ) : (
+                      <>
+                        <span className="w-1.5 h-1.5 rounded-full bg-mint-500"></span> Search complete
+                      </>
+                    )}
                   </p>
                 </div>
-                <button onClick={clearImage} className="p-2 rounded-xl text-surface-400 hover:text-surface-700 hover:bg-surface-100 transition-colors">
+                <button onClick={clearImage} disabled={searching} className="p-2 rounded-xl text-surface-400 hover:text-surface-700 hover:bg-surface-100 transition-colors">
                   <X className="w-4 h-4" />
                 </button>
               </div>
             ) : (
               <div
                 onDrop={handleDrop} onDragOver={handleDragOver} onDragLeave={handleDragLeave}
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => !searching && fileInputRef.current?.click()}
                 className={`flex items-center justify-center gap-3 p-5 rounded-2xl border-2 border-dashed cursor-pointer transition-all duration-300 ${
+                  searching ? 'opacity-50 cursor-not-allowed border-surface-200 bg-surface-50' :
                   isDragOver ? 'border-primary-400 bg-primary-50' : 'border-surface-200 hover:border-primary-300 hover:bg-surface-50'
                 }`} id="image-upload-zone"
               >
@@ -138,12 +184,18 @@ export default function ImageSearch() {
                   </p>
                   <p className="text-[10px] text-surface-400 mt-0.5 font-medium">PNG, JPG, WEBP up to 10MB</p>
                 </div>
-                <input ref={fileInputRef} type="file" accept="image/*" onChange={(e) => handleFileUpload(e.target.files[0])} className="hidden" />
+                <input ref={fileInputRef} type="file" accept="image/*" onChange={(e) => handleFileUpload(e.target.files[0])} disabled={searching} className="hidden" />
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {errorMsg && (
+        <div className="p-4 mb-6 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-sm font-medium flex items-center gap-2 animate-fade-in">
+          <span>⚠️ {errorMsg}</span>
+        </div>
+      )}
 
       {/* Results */}
       {hasSearched && (

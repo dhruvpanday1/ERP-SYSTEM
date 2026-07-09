@@ -17,6 +17,7 @@ pg8000==1.31.2
 
 # OpenAI client (used by Vanna for LLM calls via OpenRouter)
 openai==1.40.0
+httpx==0.27.2
 
 # ChromaDB — Local vector store for Vanna training data
 chromadb
@@ -25,6 +26,7 @@ chromadb
 pandas
 
 # Image Similarity (CLIP) & Streaming
+--extra-index-url https://download.pytorch.org/whl/cpu
 torch
 transformers
 pillow

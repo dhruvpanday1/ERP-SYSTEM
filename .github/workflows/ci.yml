@@ -1,35 +1,187 @@
-name: CI/CD Pipeline
+name: WFX ERP - CI/CD Pipeline
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "master", "main" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "master", "main" ]
 
+env:
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "20"
+
+# ---------------------------------------------
+# JOB 1: Backend - Syntax + Structure Check
+# ---------------------------------------------
 jobs:
-  build-and-test:
+  backend-ci:
+    name: Backend CI (FastAPI + CLIP)
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.12'
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
 
-    - name: Install backend dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r backend/requirements.txt
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-${{ hashFiles('backend/requirements.txt') }}
+          restore-keys: |
+            pip-${{ runner.os }}-
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
+      - name: Install core dependencies (no torch for speed)
+        run: |
+          python -m pip install --upgrade pip
+          pip install fastapi==0.115.0 uvicorn pydantic==2.8.0 python-dotenv==1.0.1 pg8000==1.31.2 pillow
 
-    - name: Install frontend dependencies and build
-      run: |
-        cd frontend
-        npm ci
-        npm run build
+      - name: Python syntax check
+        run: |
+          python -m py_compile backend/main.py
+          echo "main.py syntax OK"
+
+      - name: Validate API endpoints exist
+        run: |
+          python - <<'PYEOF'
+          import ast, sys
+
+          with open('backend/main.py', 'r', encoding='utf-8') as f:
+              src = f.read()
+
+          try:
+              tree = ast.parse(src)
+          except SyntaxError as e:
+              print("SyntaxError:", e)
+              sys.exit(1)
+
+          func_names = [n.name for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
+          required = ['health_check', 'get_stats', 'get_all_products', 'ask_question', 'search_image']
+          missing = [r for r in required if r not in func_names]
+
+          if missing:
+              print("MISSING endpoints:", missing)
+              sys.exit(1)
+
+          print("All required endpoints found:", required)
+          PYEOF
+
+      - name: Check requirements.txt has required packages
+        run: |
+          python - <<'PYEOF'
+          required = ['fastapi', 'uvicorn', 'pg8000', 'openai', 'chromadb', 'torch', 'transformers', 'pillow', 'pydantic', 'python-dotenv']
+          with open('backend/requirements.txt', 'r') as f:
+              content = f.read().lower()
+          missing = [p for p in required if p.lower() not in content]
+          if missing:
+              print("Missing packages in requirements.txt:", missing)
+              import sys; sys.exit(1)
+          print("All required packages found in requirements.txt")
+          PYEOF
+
+  # ---------------------------------------------
+  # JOB 2: Frontend - Build + Artifact
+  # ---------------------------------------------
+  frontend-ci:
+    name: Frontend CI (Vite + React)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend (production)
+        working-directory: frontend
+        run: npm run build
+        env:
+          VITE_API_URL: http://localhost:8000
+
+      - name: Build size report
+        working-directory: frontend
+        run: |
+          echo "=== Build Output ==="
+          du -sh dist/
+          echo "=== Largest bundles ==="
+          find dist -name "*.js" -o -name "*.css" | xargs ls -lh 2>/dev/null | sort -k5 -hr | head -10
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist-${{ github.sha }}
+          path: frontend/dist/
+          retention-days: 7
+
+  # ---------------------------------------------
+  # JOB 3: Integration Check (after both pass)
+  # ---------------------------------------------
+  integration-check:
+    name: Integration Check
+    runs-on: ubuntu-latest
+    needs: [ backend-ci, frontend-ci ]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Verify project structure
+        run: |
+          echo "=== Checking required files ==="
+          MISSING=0
+          for f in \
+            "backend/main.py" \
+            "backend/requirements.txt" \
+            "backend/garment_embeddings.json" \
+            "frontend/src/App.jsx" \
+            "frontend/src/components/Layout.jsx" \
+            "frontend/package.json" \
+            "docker-compose.yml" \
+            ".gitignore" \
+            "README.md"
+          do
+            if [ -f "$f" ]; then
+              echo "  OK: $f"
+            else
+              echo "  MISSING: $f"
+              MISSING=1
+            fi
+          done
+          [ $MISSING -eq 0 ] || exit 1
+          echo "All required files present!"
+
+      - name: Check garment embeddings
+        run: |
+          size=$(du -sh backend/garment_embeddings.json | cut -f1)
+          echo "garment_embeddings.json size: $size"
+
+      - name: Validate docker-compose.yml
+        run: |
+          docker compose config --no-interpolate --quiet
+          echo "docker-compose.yml is valid"
+
+      - name: CI/CD Summary
+        run: |
+          echo "================================================"
+          echo "  WFX ERP - CI/CD Pipeline Complete"
+          echo "================================================"
+          echo "  Backend : Syntax + Endpoints validated"
+          echo "  Frontend: Production build successful"
+          echo "  Structure: All required files present"
+          echo "  Docker  : Compose config valid"
+          echo "  Commit  : ${{ github.sha }}"
+          echo "  Branch  : ${{ github.ref_name }}"
+          echo "================================================"

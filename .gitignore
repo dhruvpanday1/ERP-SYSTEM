@@ -34,3 +34,17 @@ backend/vanna_chroma/
 vanna_chroma/
 *.pyc
 *.pyo
+
+# ChromaDB runtime vector store (auto-generated from garment_embeddings.json)
+backend/chroma_search/
+chroma_search/
+
+# Backend scratch/debug/test scripts
+backend/out.txt
+backend/check_*.py
+backend/fetch_schema.py
+backend/get_schema*.py
+backend/seed_*.py
+backend/test_*.py
+backend/inspect_clip.py
+backend/tmp_wheels/
