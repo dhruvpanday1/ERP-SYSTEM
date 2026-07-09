@@ -170,6 +170,7 @@ jobs:
 
       - name: Validate docker-compose.yml
         run: |
+          touch backend/.env frontend/.env
           docker compose config --no-interpolate --quiet
           echo "docker-compose.yml is valid"
 
